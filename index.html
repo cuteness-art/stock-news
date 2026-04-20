@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>台股個股新聞搜尋</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f3ee; --surface: #ffffff; --surface2: #eeebe4;
+    --border: #d6d0c4; --text: #1a1814; --text-muted: #6b6457;
+    --text-hint: #9e9487; --accent: #c84b2f; --accent-light: #fdf1ee;
+    --accent-border: #f0c4b8;
+    --mono: 'DM Mono', monospace; --sans: 'Noto Sans TC', sans-serif;
+  }
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  .header {
+    background: var(--text); color: #f5f3ee; padding: 16px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .header-logo { font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; opacity: 0.6; text-transform: uppercase; }
+  .header-title { font-size: 14px; font-weight: 500; }
+  .header-date { font-family: var(--mono); font-size: 11px; opacity: 0.45; }
+
+  .main { max-width: 860px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  .hero { margin-bottom: 32px; }
+  .hero-eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-hint); margin-bottom: 8px; }
+  .hero-heading { font-size: 30px; font-weight: 700; line-height: 1.25; letter-spacing: -0.02em; margin-bottom: 8px; }
+  .hero-heading span { color: var(--accent); }
+  .hero-sub { font-size: 14px; color: var(--text-muted); line-height: 1.6; }
+
+  .search-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px; margin-bottom: 16px;
+    display: flex; gap: 10px;
+  }
+  .input-wrap { flex: 1; position: relative; }
+  .input-label {
+    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em;
+    color: var(--text-hint); text-transform: uppercase; pointer-events: none;
+  }
+  .stock-input {
+    width: 100%; height: 46px; padding: 0 14px 0 76px;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg); font-family: var(--mono); font-size: 20px;
+    font-weight: 500; color: var(--text); letter-spacing: 0.05em; outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .stock-input:focus { border-color: var(--text); box-shadow: 0 0 0 3px rgba(26,24,20,0.08); background: #fff; }
+  .stock-input.shake { animation: shake 0.35s ease; border-color: var(--accent); }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 60%{transform:translateX(6px)} 80%{transform:translateX(-3px)} }
+
+  .search-btn {
+    height: 46px; padding: 0 22px; background: var(--text); color: #f5f3ee;
+    border: none; border-radius: 8px; font-family: var(--sans); font-size: 14px;
+    font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px;
+    transition: background 0.15s, transform 0.1s; white-space: nowrap;
+  }
+  .search-btn:hover { background: #2e2b26; }
+  .search-btn:active { transform: scale(0.97); }
+  .search-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .quick-picks { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 28px; }
+  .quick-label { font-size: 12px; color: var(--text-hint); }
+  .quick-chip {
+    font-family: var(--mono); font-size: 12px; padding: 4px 10px;
+    border: 1px solid var(--border); border-radius: 99px;
+    background: transparent; color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+  }
+  .quick-chip:hover { border-color: var(--text); color: var(--text); background: var(--surface2); }
+
+  .status-wrap { margin-bottom: 20px; }
+  .loading-bar {
+    display: none; align-items: center; gap: 10px;
+    padding: 13px 16px; border-radius: 8px;
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text-muted); font-size: 14px;
+  }
+  .loading-bar.show { display: flex; }
+  .error-bar {
+    display: none; padding: 13px 16px; border-radius: 8px;
+    background: var(--accent-light); border: 1px solid var(--accent-border); color: var(--accent);
+  }
+  .error-bar.show { display: block; }
+  .err-main { font-size: 14px; margin-bottom: 4px; font-weight: 500; }
+  .err-detail { font-family: var(--mono); font-size: 11px; opacity: 0.7; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { width: 15px; height: 15px; border: 2px solid var(--border); border-top-color: var(--text); border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+
+  .results-header { display: none; justify-content: space-between; align-items: baseline; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+  .results-header.show { display: flex; }
+  .results-title { font-size: 15px; font-weight: 500; }
+  .results-meta { font-family: var(--mono); font-size: 12px; color: var(--text-hint); }
+
+  .news-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    margin-bottom: 10px; overflow: hidden;
+    transition: box-shadow 0.2s, border-color 0.2s;
+    animation: fadeUp 0.3s ease both;
+  }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  .news-card:hover { border-color: #b0aa9e; box-shadow: 0 2px 14px rgba(0,0,0,0.07); }
+  .news-card.latest { border-left: 3px solid var(--accent); }
+  .news-card a { display: block; padding: 15px 18px; text-decoration: none; color: inherit; }
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
+  .news-title { font-size: 15px; font-weight: 500; line-height: 1.55; color: var(--text); flex: 1; transition: color 0.15s; }
+  .news-card:hover .news-title { color: var(--accent); }
+  .badge-new { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 7px; border-radius: 4px; background: var(--accent-light); color: var(--accent); border: 1px solid var(--accent-border); flex-shrink: 0; margin-top: 2px; }
+  .news-summary { font-size: 13px; color: var(--text-muted); line-height: 1.65; margin-bottom: 11px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card-footer { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .source-badge { font-size: 11px; padding: 2px 8px; background: var(--surface2); border-radius: 4px; color: var(--text-muted); font-weight: 500; }
+  .news-date { font-family: var(--mono); font-size: 11px; color: var(--text-hint); }
+  .link-hint { margin-left: auto; font-size: 11px; color: var(--text-hint); display: flex; align-items: center; gap: 3px; transition: color 0.15s; }
+  .news-card:hover .link-hint { color: var(--accent); }
+
+  .empty-state { display: none; text-align: center; padding: 56px 20px; color: var(--text-hint); }
+  .empty-state.show { display: block; }
+  .empty-state svg { margin: 0 auto 14px; display: block; opacity: 0.3; }
+  .empty-state p { font-size: 14px; line-height: 1.8; }
+
+  .welcome-state { text-align: center; padding: 48px 20px; color: var(--text-hint); }
+  .state-icon { width: 54px; height: 54px; background: var(--surface2); border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; }
+  .welcome-state p { font-size: 14px; line-height: 1.7; }
+
+  .page-footer { text-align: center; font-family: var(--mono); font-size: 11px; color: var(--text-hint); margin-top: 48px; letter-spacing: 0.05em; }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <span class="header-logo">TWSE · News Tracker</span>
+  <span class="header-title">台股個股新聞</span>
+  <span class="header-date" id="headerDate"></span>
+</header>
+
+<main class="main">
+  <div class="hero">
+    <p class="hero-eyebrow">Taiwan Stock Exchange · News Tracker</p>
+    <h1 class="hero-heading">個股新聞<span>．</span>即時追蹤</h1>
+    <p class="hero-sub">輸入台股股票代號，搜尋近一週相關新聞報導，依日期由新至舊排列。</p>
+  </div>
+
+  <div class="search-box">
+    <div class="input-wrap">
+      <span class="input-label">代號</span>
+      <input class="stock-input" id="stockInput" type="text" placeholder="2330" maxlength="6" autocomplete="off">
+    </div>
+    <button class="search-btn" id="searchBtn" onclick="doSearch()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      搜尋新聞
+    </button>
+  </div>
+
+  <div class="quick-picks">
+    <span class="quick-label">常用：</span>
+    <button class="quick-chip" onclick="quickSearch('2330')">2330 台積電</button>
+    <button class="quick-chip" onclick="quickSearch('2317')">2317 鴻海</button>
+    <button class="quick-chip" onclick="quickSearch('2454')">2454 聯發科</button>
+    <button class="quick-chip" onclick="quickSearch('0050')">0050 元大台灣50</button>
+    <button class="quick-chip" onclick="quickSearch('2603')">2603 長榮</button>
+    <button class="quick-chip" onclick="quickSearch('2881')">2881 富邦金</button>
+  </div>
+
+  <div class="status-wrap">
+    <div class="loading-bar" id="loadingBar">
+      <div class="spinner"></div>
+      <span id="loadingText">搜尋中...</span>
+    </div>
+    <div class="error-bar" id="errorBar">
+      <div class="err-main" id="errMain"></div>
+      <div class="err-detail" id="errDetail"></div>
+    </div>
+  </div>
+
+  <div class="results-header" id="resultsHeader">
+    <span class="results-title" id="resultsTitle"></span>
+    <span class="results-meta" id="resultsMeta"></span>
+  </div>
+
+  <div id="newsList"></div>
+
+  <div class="empty-state" id="emptyState">
+    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+    </svg>
+    <p>找不到近一週相關新聞<br><span style="font-size:12px;">請確認股票代號是否正確</span></p>
+  </div>
+
+  <div class="welcome-state" id="welcomeState">
+    <div class="state-icon">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#6b6457" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+    </div>
+    <p>在上方輸入股票代號<br>即可搜尋近一週個股新聞</p>
+  </div>
+
+  <p class="page-footer">資料來源：Google News RSS &nbsp;·&nbsp; 免費使用 &nbsp;·&nbsp; 無需 API Key</p>
+</main>
+
+<script>
+const stockNames = {
+  '2330':'台積電','2317':'鴻海','2454':'聯發科','2881':'富邦金','2882':'國泰金',
+  '2412':'中華電','2308':'台達電','3008':'大立光','2303':'聯電','1301':'台塑',
+  '2002':'中鋼','2886':'兆豐金','6505':'台塑化','2357':'華碩','2382':'廣達',
+  '3711':'日月光投控','5876':'上海商銀','2892':'第一金','2884':'玉山金',
+  '0050':'元大台灣50','0056':'元大高股息','00878':'國泰永續高股息',
+  '2337':'旺宏','2395':'研華','4938':'和碩','2379':'瑞昱','6669':'緯穎',
+  '2345':'智邦','3045':'台灣大','4904':'遠傳','2609':'陽明','2603':'長榮',
+  '2891':'中信金','2912':'統一超','1216':'統一','2301':'光寶科','2327':'國巨'
+};
+
+// 4 個備用 proxy，依序嘗試
+const PROXIES = [
+  {
+    build: u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
+    extract: async r => { const j = await r.json(); return j.contents; }
+  },
+  {
+    build: u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+    extract: async r => r.text()
+  },
+  {
+    build: u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+    extract: async r => r.text()
+  },
+  {
+    build: u => `https://thingproxy.freeboard.io/fetch/${u}`,
+    extract: async r => r.text()
+  }
+];
+
+async function fetchRSS(targetUrl) {
+  let lastErr = null;
+  for (let i = 0; i < PROXIES.length; i++) {
+    setLoading(`正在連線（方式 ${i + 1}／${PROXIES.length}）...`);
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 9000);
+      const res = await fetch(PROXIES[i].build(targetUrl), { signal: ctrl.signal });
+      clearTimeout(timer);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await PROXIES[i].extract(res);
+      if (!text || text.length < 20) throw new Error('空回應');
+      return text;
+    } catch (e) {
+      lastErr = e.name === 'AbortError' ? new Error('連線逾時') : e;
+    }
+  }
+  throw new Error(`所有連線方式皆失敗（${lastErr?.message}）`);
+}
+
+// Header 日期
+const today = new Date();
+document.getElementById('headerDate').textContent =
+  `${today.getFullYear()}/${String(today.getMonth()+1).padStart(2,'0')}/${String(today.getDate()).padStart(2,'0')}`;
+
+document.getElementById('stockInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doSearch();
+});
+
+function quickSearch(code) {
+  document.getElementById('stockInput').value = code;
+  doSearch();
+}
+
+function doSearch() {
+  const code = document.getElementById('stockInput').value.trim().replace(/\s/g, '');
+  if (!code) {
+    const inp = document.getElementById('stockInput');
+    inp.classList.remove('shake');
+    void inp.offsetWidth;
+    inp.classList.add('shake');
+    setTimeout(() => inp.classList.remove('shake'), 400);
+    return;
+  }
+  fetchNews(code);
+}
+
+function setLoading(msg) {
+  document.getElementById('loadingBar').classList.add('show');
+  document.getElementById('errorBar').classList.remove('show');
+  document.getElementById('loadingText').textContent = msg;
+}
+
+function setError(main, detail) {
+  document.getElementById('loadingBar').classList.remove('show');
+  document.getElementById('errorBar').classList.add('show');
+  document.getElementById('errMain').textContent = main;
+  document.getElementById('errDetail').textContent = detail;
+}
+
+function clearStatus() {
+  document.getElementById('loadingBar').classList.remove('show');
+  document.getElementById('errorBar').classList.remove('show');
+}
+
+function resetUI() {
+  document.getElementById('welcomeState').style.display = 'none';
+  document.getElementById('emptyState').classList.remove('show');
+  document.getElementById('newsList').innerHTML = '';
+  document.getElementById('resultsHeader').classList.remove('show');
+}
+
+async function fetchNews(code) {
+  const name = stockNames[code] || '';
+  const displayName = name ? `${code}．${name}` : code;
+
+  resetUI();
+  document.getElementById('searchBtn').disabled = true;
+  setLoading(`搜尋「${displayName}」近一週新聞...`);
+
+  // Google News RSS 台灣繁體中文
+  const q = encodeURIComponent(name ? `${code} ${name} 股票` : `${code} 台股`);
+  const rssUrl = `https://news.google.com/rss/search?q=${q}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`;
+
+  try {
+    const xmlText = await fetchRSS(rssUrl);
+
+    const parser = new DOMParser();
+    const xml = parser.parseFromString(xmlText, 'text/xml');
+
+    if (xml.querySelector('parsererror')) throw new Error('XML 解析失敗');
+
+    const items = Array.from(xml.querySelectorAll('item'));
+    if (items.length === 0) throw new Error('RSS 內無項目');
+
+    // 過濾近一週
+    const weekAgo = Date.now() - 7 * 86400000;
+    let recent = items.filter(item => {
+      const pub = item.querySelector('pubDate')?.textContent || '';
+      if (!pub) return true;
+      const t = new Date(pub).getTime();
+      return isNaN(t) || t >= weekAgo;
+    });
+
+    // 若過濾後為空，退而取前 10 則
+    if (recent.length === 0) recent = items.slice(0, 10);
+
+    // 排序：最新在前
+    recent.sort((a, b) => {
+      const da = new Date(a.querySelector('pubDate')?.textContent || 0);
+      const db = new Date(b.querySelector('pubDate')?.textContent || 0);
+      return db - da;
+    });
+
+    clearStatus();
+    document.getElementById('searchBtn').disabled = false;
+
+    // 顯示 header
+    const rh = document.getElementById('resultsHeader');
+    rh.classList.add('show');
+    document.getElementById('resultsTitle').textContent = `${displayName}　近一週新聞`;
+    document.getElementById('resultsMeta').textContent = `共 ${recent.length} 則`;
+
+    // 渲染新聞卡片
+    const list = document.getElementById('newsList');
+    recent.forEach((item, i) => {
+      const title = clean(item.querySelector('title')?.textContent || '（無標題）');
+
+      // Google News RSS: <link> 內容是 text node，在 <title> 後面
+      let link = '';
+      for (const node of item.childNodes) {
+        if (node.nodeType === Node.TEXT_NODE && node.textContent.trim().startsWith('http')) {
+          link = node.textContent.trim();
+          break;
+        }
+      }
+      if (!link) link = clean(item.querySelector('link')?.textContent || '#');
+
+      const pubDate = item.querySelector('pubDate')?.textContent || '';
+      const source = clean(item.querySelector('source')?.textContent || extractDomain(link));
+      const desc = clean(item.querySelector('description')?.textContent || '');
+      const d = new Date(pubDate);
+      const dateLabel = isNaN(d.getTime()) ? '' : formatDate(d);
+
+      const card = document.createElement('div');
+      card.className = 'news-card' + (i === 0 ? ' latest' : '');
+      card.style.animationDelay = `${Math.min(i * 45, 400)}ms`;
+      card.innerHTML = `
+        <a href="${esc(link)}" target="_blank" rel="noopener noreferrer">
+          <div class="card-top">
+            <span class="news-title">${esc(title)}</span>
+            ${i === 0 ? '<span class="badge-new">最新</span>' : ''}
+          </div>
+          ${desc ? `<p class="news-summary">${esc(desc)}</p>` : ''}
+          <div class="card-footer">
+            <span class="source-badge">${esc(source)}</span>
+            ${dateLabel ? `<span class="news-date">${dateLabel}</span>` : ''}
+            <span class="link-hint">
+              閱讀原文
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/>
+              </svg>
+            </span>
+          </div>
+        </a>`;
+      list.appendChild(card);
+    });
+
+  } catch (err) {
+    document.getElementById('searchBtn').disabled = false;
+    setError('搜尋失敗，請確認網路連線後重試。', err.message);
+  }
+}
+
+function formatDate(d) {
+  const pad = n => String(n).padStart(2, '0');
+  const s = `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const h = Math.floor((Date.now() - d) / 3600000);
+  const day = Math.floor(h / 24);
+  const rel = h < 1 ? '剛剛' : h < 24 ? `${h} 小時前` : day <= 7 ? `${day} 天前` : '';
+  return rel ? `${s}　（${rel}）` : s;
+}
+
+function extractDomain(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return '未知來源'; }
+}
+
+function clean(s) {
+  return String(s)
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .trim();
+}
+
+function esc(s) {
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+</script>
+</body>
+</html>
