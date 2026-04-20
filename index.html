@@ -75,37 +75,53 @@
   }
   .quick-chip:hover { border-color: var(--text); color: var(--text); background: var(--surface2); }
 
-  .status-wrap { margin-bottom: 20px; }
-  .loading-bar {
-    display: none; align-items: center; gap: 10px;
-    padding: 13px 16px; border-radius: 8px;
-    background: var(--surface); border: 1px solid var(--border);
-    color: var(--text-muted); font-size: 14px;
+  /* Progress */
+  .progress-wrap { margin-bottom: 20px; display: none; }
+  .progress-wrap.show { display: block; }
+  .progress-label { font-size: 13px; color: var(--text-muted); margin-bottom: 8px; display: flex; justify-content: space-between; }
+  .progress-bar-bg { height: 4px; background: var(--surface2); border-radius: 99px; overflow: hidden; }
+  .progress-bar-fill { height: 4px; background: var(--text); border-radius: 99px; transition: width 0.4s ease; width: 0%; }
+  .source-status { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .src-pill {
+    font-family: var(--mono); font-size: 11px; padding: 3px 9px;
+    border-radius: 99px; border: 1px solid var(--border);
+    color: var(--text-hint); background: var(--surface); transition: all 0.3s;
   }
-  .loading-bar.show { display: flex; }
+  .src-pill.loading { border-color: #b0aa9e; color: var(--text-muted); }
+  .src-pill.done { border-color: #2a6e4a; color: #2a6e4a; background: #edf5f0; }
+  .src-pill.fail { border-color: var(--accent-border); color: var(--accent); background: var(--accent-light); text-decoration: line-through; }
+
   .error-bar {
-    display: none; padding: 13px 16px; border-radius: 8px;
+    display: none; padding: 13px 16px; border-radius: 8px; margin-bottom: 20px;
     background: var(--accent-light); border: 1px solid var(--accent-border); color: var(--accent);
   }
   .error-bar.show { display: block; }
   .err-main { font-size: 14px; margin-bottom: 4px; font-weight: 500; }
   .err-detail { font-family: var(--mono); font-size: 11px; opacity: 0.7; }
 
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .spinner { width: 15px; height: 15px; border: 2px solid var(--border); border-top-color: var(--text); border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
-
   .results-header { display: none; justify-content: space-between; align-items: baseline; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
   .results-header.show { display: flex; }
   .results-title { font-size: 15px; font-weight: 500; }
   .results-meta { font-family: var(--mono); font-size: 12px; color: var(--text-hint); }
 
+  /* Source filter tabs */
+  .filter-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+  .f-tab {
+    font-family: var(--mono); font-size: 11px; padding: 4px 11px;
+    border-radius: 99px; border: 1px solid var(--border);
+    background: transparent; color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+  }
+  .f-tab:hover { border-color: var(--text); color: var(--text); }
+  .f-tab.active { background: var(--text); color: #f5f3ee; border-color: var(--text); }
+
+  /* Cards */
   .news-card {
     background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
     margin-bottom: 10px; overflow: hidden;
     transition: box-shadow 0.2s, border-color 0.2s;
-    animation: fadeUp 0.3s ease both;
+    animation: fadeUp 0.25s ease both;
   }
-  @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
   .news-card:hover { border-color: #b0aa9e; box-shadow: 0 2px 14px rgba(0,0,0,0.07); }
   .news-card.latest { border-left: 3px solid var(--accent); }
   .news-card a { display: block; padding: 15px 18px; text-decoration: none; color: inherit; }
@@ -144,7 +160,7 @@
   <div class="hero">
     <p class="hero-eyebrow">Taiwan Stock Exchange · News Tracker</p>
     <h1 class="hero-heading">個股新聞<span>．</span>即時追蹤</h1>
-    <p class="hero-sub">輸入台股股票代號，搜尋近一週相關新聞報導，依日期由新至舊排列。</p>
+    <p class="hero-sub">同時搜尋多個優質財經媒體，近一週新聞依日期由新至舊排列。</p>
   </div>
 
   <div class="search-box">
@@ -170,15 +186,19 @@
     <button class="quick-chip" onclick="quickSearch('2881')">2881 富邦金</button>
   </div>
 
-  <div class="status-wrap">
-    <div class="loading-bar" id="loadingBar">
-      <div class="spinner"></div>
-      <span id="loadingText">搜尋中...</span>
+  <!-- 進度條 -->
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-label">
+      <span id="progressText">正在搜尋...</span>
+      <span id="progressCount"></span>
     </div>
-    <div class="error-bar" id="errorBar">
-      <div class="err-main" id="errMain"></div>
-      <div class="err-detail" id="errDetail"></div>
-    </div>
+    <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill"></div></div>
+    <div class="source-status" id="sourceStatus"></div>
+  </div>
+
+  <div class="error-bar" id="errorBar">
+    <div class="err-main" id="errMain"></div>
+    <div class="err-detail" id="errDetail"></div>
   </div>
 
   <div class="results-header" id="resultsHeader">
@@ -186,6 +206,7 @@
     <span class="results-meta" id="resultsMeta"></span>
   </div>
 
+  <div class="filter-tabs" id="filterTabs" style="display:none;"></div>
   <div id="newsList"></div>
 
   <div class="empty-state" id="emptyState">
@@ -204,7 +225,7 @@
     <p>在上方輸入股票代號<br>即可搜尋近一週個股新聞</p>
   </div>
 
-  <p class="page-footer">資料來源：Google News RSS &nbsp;·&nbsp; 免費使用 &nbsp;·&nbsp; 無需 API Key</p>
+  <p class="page-footer">來源：經濟日報・工商時報・鉅亨網・MoneyDJ・Yahoo股市 &nbsp;·&nbsp; 免費・無需 API Key</p>
 </main>
 
 <script>
@@ -219,44 +240,111 @@ const stockNames = {
   '2891':'中信金','2912':'統一超','1216':'統一','2301':'光寶科','2327':'國巨'
 };
 
-// 4 個備用 proxy，依序嘗試
+// 優質財經媒體 RSS（直接搜尋股票代號＋名稱）
+// 用 Google News RSS 但指定優質來源，排除內容農場
+function buildSources(code, name) {
+  const kw = name ? `${code} ${name}` : code;
+  const kwEnc = encodeURIComponent(kw);
+  // 排除名單
+  const exclude = '-CMoney -爆料同學會 -存股 -選股達人 -LINE -社群';
+  const exEnc = encodeURIComponent(` ${exclude}`);
+
+  return [
+    {
+      name: '經濟日報',
+      url: `https://news.google.com/rss/search?q=${kwEnc}+site:money.udn.com${exEnc}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`
+    },
+    {
+      name: '工商時報',
+      url: `https://news.google.com/rss/search?q=${kwEnc}+site:ctee.com.tw${exEnc}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`
+    },
+    {
+      name: '鉅亨網',
+      url: `https://news.google.com/rss/search?q=${kwEnc}+site:cnyes.com${exEnc}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`
+    },
+    {
+      name: 'MoneyDJ',
+      url: `https://news.google.com/rss/search?q=${kwEnc}+site:moneydj.com${exEnc}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`
+    },
+    {
+      name: '自由財經',
+      url: `https://news.google.com/rss/search?q=${kwEnc}+site:ec.ltn.com.tw${exEnc}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`
+    },
+    {
+      name: '聯合報',
+      url: `https://news.google.com/rss/search?q=${kwEnc}+site:udn.com${exEnc}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`
+    },
+  ];
+}
+
+// CORS proxy（依序備援）
 const PROXIES = [
-  {
-    build: u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
-    extract: async r => { const j = await r.json(); return j.contents; }
-  },
-  {
-    build: u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
-    extract: async r => r.text()
-  },
-  {
-    build: u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
-    extract: async r => r.text()
-  },
-  {
-    build: u => `https://thingproxy.freeboard.io/fetch/${u}`,
-    extract: async r => r.text()
-  }
+  { build: u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`, extract: async r => { const j = await r.json(); return j.contents; } },
+  { build: u => `https://corsproxy.io/?${encodeURIComponent(u)}`, extract: async r => r.text() },
+  { build: u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`, extract: async r => r.text() },
 ];
 
-async function fetchRSS(targetUrl) {
+async function fetchOneRSS(url) {
   let lastErr = null;
-  for (let i = 0; i < PROXIES.length; i++) {
-    setLoading(`正在連線（方式 ${i + 1}／${PROXIES.length}）...`);
+  for (const proxy of PROXIES) {
     try {
       const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 9000);
-      const res = await fetch(PROXIES[i].build(targetUrl), { signal: ctrl.signal });
+      const timer = setTimeout(() => ctrl.abort(), 8000);
+      const res = await fetch(proxy.build(url), { signal: ctrl.signal });
       clearTimeout(timer);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const text = await PROXIES[i].extract(res);
+      const text = await proxy.extract(res);
       if (!text || text.length < 20) throw new Error('空回應');
       return text;
-    } catch (e) {
-      lastErr = e.name === 'AbortError' ? new Error('連線逾時') : e;
+    } catch(e) {
+      lastErr = e.name === 'AbortError' ? new Error('逾時') : e;
     }
   }
-  throw new Error(`所有連線方式皆失敗（${lastErr?.message}）`);
+  throw lastErr;
+}
+
+function parseRSS(xmlText, sourceName) {
+  const parser = new DOMParser();
+  const xml = parser.parseFromString(xmlText, 'text/xml');
+  if (xml.querySelector('parsererror')) return [];
+  const items = Array.from(xml.querySelectorAll('item'));
+  const weekAgo = Date.now() - 7 * 86400000;
+
+  return items
+    .map(item => {
+      const title = clean(item.querySelector('title')?.textContent || '');
+      if (!title) return null;
+
+      // 提取 link（Google News RSS 放在 text node）
+      let link = '';
+      for (const node of item.childNodes) {
+        if (node.nodeType === Node.TEXT_NODE && node.textContent.trim().startsWith('http')) {
+          link = node.textContent.trim(); break;
+        }
+      }
+      if (!link) link = clean(item.querySelector('link')?.textContent || '#');
+
+      const pubDateStr = item.querySelector('pubDate')?.textContent || '';
+      const pubDate = new Date(pubDateStr);
+      const time = isNaN(pubDate.getTime()) ? 0 : pubDate.getTime();
+
+      // 過濾一週外
+      if (time > 0 && time < weekAgo) return null;
+
+      const source = clean(item.querySelector('source')?.textContent || sourceName);
+      const desc = clean(item.querySelector('description')?.textContent || '');
+
+      return { title, link, source, desc, time, pubDate };
+    })
+    .filter(Boolean);
+}
+
+// 內容農場黑名單（標題或來源包含這些就丟掉）
+const BLOCKLIST = ['cmoney', '爆料同學會', '存股', '選股達人', '小資', '飆股', '必買', '秘笈', '暴富'];
+
+function isJunk(item) {
+  const text = (item.title + item.source + item.desc).toLowerCase();
+  return BLOCKLIST.some(kw => text.includes(kw.toLowerCase()));
 }
 
 // Header 日期
@@ -274,170 +362,189 @@ function quickSearch(code) {
 }
 
 function doSearch() {
-  const code = document.getElementById('stockInput').value.trim().replace(/\s/g, '');
+  const code = document.getElementById('stockInput').value.trim().replace(/\s/g,'');
   if (!code) {
     const inp = document.getElementById('stockInput');
-    inp.classList.remove('shake');
-    void inp.offsetWidth;
-    inp.classList.add('shake');
+    inp.classList.remove('shake'); void inp.offsetWidth; inp.classList.add('shake');
     setTimeout(() => inp.classList.remove('shake'), 400);
     return;
   }
   fetchNews(code);
 }
 
-function setLoading(msg) {
-  document.getElementById('loadingBar').classList.add('show');
-  document.getElementById('errorBar').classList.remove('show');
-  document.getElementById('loadingText').textContent = msg;
-}
-
-function setError(main, detail) {
-  document.getElementById('loadingBar').classList.remove('show');
-  document.getElementById('errorBar').classList.add('show');
-  document.getElementById('errMain').textContent = main;
-  document.getElementById('errDetail').textContent = detail;
-}
-
-function clearStatus() {
-  document.getElementById('loadingBar').classList.remove('show');
-  document.getElementById('errorBar').classList.remove('show');
-}
-
-function resetUI() {
-  document.getElementById('welcomeState').style.display = 'none';
-  document.getElementById('emptyState').classList.remove('show');
-  document.getElementById('newsList').innerHTML = '';
-  document.getElementById('resultsHeader').classList.remove('show');
-}
+let allNews = [];
+let currentFilter = '全部';
 
 async function fetchNews(code) {
   const name = stockNames[code] || '';
   const displayName = name ? `${code}．${name}` : code;
+  const sources = buildSources(code, name);
 
-  resetUI();
+  // 重置 UI
+  document.getElementById('welcomeState').style.display = 'none';
+  document.getElementById('emptyState').classList.remove('show');
+  document.getElementById('errorBar').classList.remove('show');
+  document.getElementById('newsList').innerHTML = '';
+  document.getElementById('resultsHeader').classList.remove('show');
+  document.getElementById('filterTabs').style.display = 'none';
   document.getElementById('searchBtn').disabled = true;
-  setLoading(`搜尋「${displayName}」近一週新聞...`);
+  allNews = [];
+  currentFilter = '全部';
 
-  // Google News RSS 台灣繁體中文
-  const q = encodeURIComponent(name ? `${code} ${name} 股票` : `${code} 台股`);
-  const rssUrl = `https://news.google.com/rss/search?q=${q}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`;
+  // 顯示進度條
+  const pw = document.getElementById('progressWrap');
+  pw.classList.add('show');
+  document.getElementById('progressText').textContent = `正在搜尋「${displayName}」...`;
+  document.getElementById('progressCount').textContent = `0 / ${sources.length}`;
+  document.getElementById('progressFill').style.width = '0%';
 
-  try {
-    const xmlText = await fetchRSS(rssUrl);
+  // 建立來源狀態 pills
+  const ss = document.getElementById('sourceStatus');
+  ss.innerHTML = '';
+  const pills = {};
+  sources.forEach(src => {
+    const pill = document.createElement('span');
+    pill.className = 'src-pill';
+    pill.textContent = src.name;
+    ss.appendChild(pill);
+    pills[src.name] = pill;
+  });
 
-    const parser = new DOMParser();
-    const xml = parser.parseFromString(xmlText, 'text/xml');
-
-    if (xml.querySelector('parsererror')) throw new Error('XML 解析失敗');
-
-    const items = Array.from(xml.querySelectorAll('item'));
-    if (items.length === 0) throw new Error('RSS 內無項目');
-
-    // 過濾近一週
-    const weekAgo = Date.now() - 7 * 86400000;
-    let recent = items.filter(item => {
-      const pub = item.querySelector('pubDate')?.textContent || '';
-      if (!pub) return true;
-      const t = new Date(pub).getTime();
-      return isNaN(t) || t >= weekAgo;
-    });
-
-    // 若過濾後為空，退而取前 10 則
-    if (recent.length === 0) recent = items.slice(0, 10);
-
-    // 排序：最新在前
-    recent.sort((a, b) => {
-      const da = new Date(a.querySelector('pubDate')?.textContent || 0);
-      const db = new Date(b.querySelector('pubDate')?.textContent || 0);
-      return db - da;
-    });
-
-    clearStatus();
-    document.getElementById('searchBtn').disabled = false;
-
-    // 顯示 header
-    const rh = document.getElementById('resultsHeader');
-    rh.classList.add('show');
-    document.getElementById('resultsTitle').textContent = `${displayName}　近一週新聞`;
-    document.getElementById('resultsMeta').textContent = `共 ${recent.length} 則`;
-
-    // 渲染新聞卡片
-    const list = document.getElementById('newsList');
-    recent.forEach((item, i) => {
-      const title = clean(item.querySelector('title')?.textContent || '（無標題）');
-
-      // Google News RSS: <link> 內容是 text node，在 <title> 後面
-      let link = '';
-      for (const node of item.childNodes) {
-        if (node.nodeType === Node.TEXT_NODE && node.textContent.trim().startsWith('http')) {
-          link = node.textContent.trim();
-          break;
-        }
+  // 並行抓取所有來源
+  let doneCount = 0;
+  const results = await Promise.allSettled(
+    sources.map(async src => {
+      pills[src.name].classList.add('loading');
+      try {
+        const xml = await fetchOneRSS(src.url);
+        const items = parseRSS(xml, src.name);
+        pills[src.name].classList.remove('loading');
+        pills[src.name].classList.add('done');
+        pills[src.name].textContent = `${src.name} (${items.length})`;
+        return items;
+      } catch(e) {
+        pills[src.name].classList.remove('loading');
+        pills[src.name].classList.add('fail');
+        throw e;
+      } finally {
+        doneCount++;
+        document.getElementById('progressCount').textContent = `${doneCount} / ${sources.length}`;
+        document.getElementById('progressFill').style.width = `${Math.round(doneCount / sources.length * 100)}%`;
       }
-      if (!link) link = clean(item.querySelector('link')?.textContent || '#');
+    })
+  );
 
-      const pubDate = item.querySelector('pubDate')?.textContent || '';
-      const source = clean(item.querySelector('source')?.textContent || extractDomain(link));
-      const desc = clean(item.querySelector('description')?.textContent || '');
-      const d = new Date(pubDate);
-      const dateLabel = isNaN(d.getTime()) ? '' : formatDate(d);
+  document.getElementById('searchBtn').disabled = false;
+  document.getElementById('progressText').textContent = '搜尋完成';
 
-      const card = document.createElement('div');
-      card.className = 'news-card' + (i === 0 ? ' latest' : '');
-      card.style.animationDelay = `${Math.min(i * 45, 400)}ms`;
-      card.innerHTML = `
-        <a href="${esc(link)}" target="_blank" rel="noopener noreferrer">
-          <div class="card-top">
-            <span class="news-title">${esc(title)}</span>
-            ${i === 0 ? '<span class="badge-new">最新</span>' : ''}
-          </div>
-          ${desc ? `<p class="news-summary">${esc(desc)}</p>` : ''}
-          <div class="card-footer">
-            <span class="source-badge">${esc(source)}</span>
-            ${dateLabel ? `<span class="news-date">${dateLabel}</span>` : ''}
-            <span class="link-hint">
-              閱讀原文
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/>
-              </svg>
-            </span>
-          </div>
-        </a>`;
-      list.appendChild(card);
-    });
+  // 合併結果，去重，過濾垃圾
+  const seen = new Set();
+  results.forEach(r => {
+    if (r.status === 'fulfilled') {
+      r.value.forEach(item => {
+        const key = item.title.slice(0, 30);
+        if (!seen.has(key) && !isJunk(item)) {
+          seen.add(key);
+          allNews.push(item);
+        }
+      });
+    }
+  });
 
-  } catch (err) {
-    document.getElementById('searchBtn').disabled = false;
-    setError('搜尋失敗，請確認網路連線後重試。', err.message);
+  // 排序：最新在前
+  allNews.sort((a, b) => b.time - a.time);
+
+  setTimeout(() => {
+    pw.classList.remove('show');
+    renderNews(allNews, displayName);
+  }, 800);
+}
+
+function renderNews(items, displayName) {
+  document.getElementById('emptyState').classList.remove('show');
+  document.getElementById('newsList').innerHTML = '';
+
+  if (items.length === 0) {
+    document.getElementById('emptyState').classList.add('show');
+    return;
   }
+
+  // 結果 header
+  const rh = document.getElementById('resultsHeader');
+  rh.classList.add('show');
+  document.getElementById('resultsTitle').textContent = `${displayName}　近一週新聞`;
+  document.getElementById('resultsMeta').textContent = `共 ${allNews.length} 則`;
+
+  // 來源篩選 tabs
+  const sourcesInResult = ['全部', ...new Set(allNews.map(i => i.source))];
+  const ft = document.getElementById('filterTabs');
+  ft.style.display = 'flex';
+  ft.innerHTML = '';
+  sourcesInResult.forEach(src => {
+    const btn = document.createElement('button');
+    btn.className = 'f-tab' + (src === currentFilter ? ' active' : '');
+    const count = src === '全部' ? allNews.length : allNews.filter(i => i.source === src).length;
+    btn.textContent = `${src} (${count})`;
+    btn.onclick = () => {
+      currentFilter = src;
+      document.querySelectorAll('.f-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const filtered = src === '全部' ? allNews : allNews.filter(i => i.source === src);
+      renderCards(filtered);
+    };
+    ft.appendChild(btn);
+  });
+
+  renderCards(items);
+}
+
+function renderCards(items) {
+  const list = document.getElementById('newsList');
+  list.innerHTML = '';
+  items.forEach((item, i) => {
+    const dateLabel = item.time ? formatDate(item.pubDate) : '';
+    const card = document.createElement('div');
+    card.className = 'news-card' + (i === 0 && currentFilter === '全部' ? ' latest' : '');
+    card.style.animationDelay = `${Math.min(i * 35, 350)}ms`;
+    card.innerHTML = `
+      <a href="${esc(item.link)}" target="_blank" rel="noopener noreferrer">
+        <div class="card-top">
+          <span class="news-title">${esc(item.title)}</span>
+          ${i === 0 && currentFilter === '全部' ? '<span class="badge-new">最新</span>' : ''}
+        </div>
+        ${item.desc ? `<p class="news-summary">${esc(item.desc)}</p>` : ''}
+        <div class="card-footer">
+          <span class="source-badge">${esc(item.source)}</span>
+          ${dateLabel ? `<span class="news-date">${dateLabel}</span>` : ''}
+          <span class="link-hint">閱讀原文
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/>
+            </svg>
+          </span>
+        </div>
+      </a>`;
+    list.appendChild(card);
+  });
 }
 
 function formatDate(d) {
-  const pad = n => String(n).padStart(2, '0');
+  const pad = n => String(n).padStart(2,'0');
   const s = `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  const h = Math.floor((Date.now() - d) / 3600000);
-  const day = Math.floor(h / 24);
+  const h = Math.floor((Date.now()-d)/3600000);
+  const day = Math.floor(h/24);
   const rel = h < 1 ? '剛剛' : h < 24 ? `${h} 小時前` : day <= 7 ? `${day} 天前` : '';
   return rel ? `${s}　（${rel}）` : s;
 }
 
-function extractDomain(url) {
-  try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return '未知來源'; }
-}
-
 function clean(s) {
-  return String(s)
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+  return String(s).replace(/<[^>]+>/g,'')
+    .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')
+    .replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&nbsp;/g,' ')
     .trim();
 }
 
 function esc(s) {
-  return String(s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 </script>
 </body>
